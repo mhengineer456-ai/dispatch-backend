@@ -12,16 +12,41 @@ let sheetsClient = null;
 const getSheetsClient = async () => {
   if (sheetsClient) return sheetsClient;
 
-  if (!fs.existsSync(KEY_FILE_PATH)) {
-    console.log(`⚠️ Google Service Account key file not found at: ${KEY_FILE_PATH}`);
-    return null;
-  }
-
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: KEY_FILE_PATH,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets']
-    });
+    let auth;
+
+    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+      const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      auth = new google.auth.GoogleAuth({
+        credentials: {
+          client_email: process.env.GOOGLE_CLIENT_EMAIL,
+          private_key: privateKey,
+          project_id: process.env.GOOGLE_PROJECT_ID || 'dispatch-key'
+        },
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    } else if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      let credentials = typeof process.env.GOOGLE_SERVICE_ACCOUNT_JSON === 'string'
+        ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+        : process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+
+      if (credentials && typeof credentials.private_key === 'string') {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
+
+      auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    } else if (fs.existsSync(KEY_FILE_PATH)) {
+      auth = new google.auth.GoogleAuth({
+        keyFile: KEY_FILE_PATH,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    } else {
+      console.log(`⚠️ Google Service Account credentials not found (Checked keyFile at: ${KEY_FILE_PATH}, and env variables GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY / GOOGLE_SERVICE_ACCOUNT_JSON).`);
+      return null;
+    }
 
     const authClient = await auth.getClient();
     sheetsClient = google.sheets({ version: 'v4', auth: authClient });
