@@ -1,0 +1,91 @@
+[
+  {
+    "gatepassNumber": "MGP-1785741058221",
+    "billNumbers": [
+      "PL-1162"
+    ],
+    "gatepassData": {
+      "selectedBills": [
+        {
+          "Bill Number": "PL-1162",
+          "additionalDetails": {
+            "totalPetti": 1,
+            "totalBora": 1,
+            "totalPolybags": 1,
+            "isByHand": false,
+            "byHandQuantity": 0,
+            "byHandPersonName": "",
+            "byPorter": false
+          }
+        }
+      ],
+      "driverName": "DWARPAL",
+      "driverContact": "7710675491",
+      "vehicleNumber": "PB 10 FV 7557",
+      "purpose": "delivery",
+      "consolidatedRemarks": "",
+      "totalPetti": 1,
+      "totalBora": 1,
+      "totalPolybags": 1
+    },
+    "updatedAt": "2026-08-03T07:11:01.983Z",
+    "createdAt": "2026-08-03T07:11:01.983Z"
+  },
+  {
+    "gatepassNumber": "MGP-TEST-999",
+    "billNumbers": [
+      "PL-HEADER-MATCH-01"
+    ],
+    "gatepassData": {
+      "totalBoxes": 2,
+      "totalBags": 3,
+      "totalPolybags": 1,
+      "porter": "NO",
+      "byHand": "NO",
+      "driverName": "VIJAY VERMA",
+      "driverContact": "7888397652",
+      "driverVehicleNumber": "AUTO :- PB10 HQ4728",
+      "gatepassTime": "2026-08-03 12:45:00"
+    },
+    "updatedAt": "2026-08-03T07:27:43.072Z",
+    "createdAt": "2026-08-03T07:27:43.072Z"
+  },
+  {
+    "gatepassNumber": "MGP-1785742806997",
+    "billNumbers": [
+      "PL-1162"
+    ],
+    "gatepassData": {
+      "selectedBills": [
+        {
+          "Bill Number": "PL-1162",
+          "additionalDetails": {
+            "totalPetti": 1,
+            "totalBora": 1,
+            "totalPolybags": 0,
+            "isByHand": false,
+            "byHandQuantity": 0,
+            "byHandPersonName": "",
+            "byPorter": false
+          }
+        }
+      ],
+      "driverName": "DWARPAL",
+      "driverContact": "7710675491",
+      "vehicleNumber": "PB 10 FV 7557",
+      "driverVehicleNumber": "PB 10 FV 7557",
+      "purpose": "delivery",
+      "consolidatedRemarks": "",
+      "totalBoxes": 1,
+      "totalBags": 1,
+      "totalPolybags": 0,
+      "porter": "NO",
+      "byHand": "NO",
+      "byHandPersonName": "",
+      "gatepassNumber": "MGP-1785742806997",
+      "gatepassTime": "3/8/2026, 1:10:10 pm"
+    },
+    "updatedAt": "2026-08-03T07:40:10.626Z",
+    "createdAt": "2026-08-03T07:40:10.626Z"
+  }
+]
