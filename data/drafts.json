@@ -189,5 +189,73 @@
     "draftId": "DL-008",
     "updatedAt": "2026-08-03T07:09:28.087Z",
     "createdAt": "2026-08-03T07:09:28.087Z"
+  },
+  {
+    "billNumber": "DL-010",
+    "packingNumber": "DL-010",
+    "partyName": "Suspense Debtor",
+    "billDate": "2026-08-04",
+    "dueDate": "",
+    "orderReference": "",
+    "items": [
+      {
+        "id": 1785834382845,
+        "barcode": "LOT-11200",
+        "lotNumber": "11200",
+        "brand": "UNDER ARMOUR",
+        "description": "NICKER GENTS",
+        "sets": "1",
+        "setsPerPcs": 4,
+        "loosePcs": 0,
+        "looseOperation": "add",
+        "quantity": 4,
+        "colors": [],
+        "sizes": [],
+        "partNo": "1268",
+        "rate": "1"
+      }
+    ],
+    "notes": "",
+    "createdDate": "2026-08-04T09:06:25.528Z",
+    "preparedBy": "System",
+    "preparedByRole": "User",
+    "preparedByEmail": "",
+    "status": "DRAFT",
+    "documentType": "DRAFT",
+    "preparedAt": "2026-08-04T09:06:25.531Z",
+    "draftId": "DL-010",
+    "updatedAt": "2026-08-04T09:06:25.537Z",
+    "createdAt": "2026-08-04T09:06:25.537Z"
+  },
+  {
+    "action": "saveDraft",
+    "billNumber": "DL-011-TEST",
+    "packingNumber": "DL-011-TEST",
+    "partyName": "TEST PARTY DRAFT PACKING LIST",
+    "billDate": "2026-08-04",
+    "dueDate": "2026-08-10",
+    "orderReference": "REF-12345",
+    "items": [
+      {
+        "id": "1",
+        "barcode": "4000003",
+        "description": "Test Draft Product Item",
+        "quantity": 15,
+        "sets": 3,
+        "setsPerPcs": 5,
+        "rate": "120",
+        "partNo": "5566"
+      }
+    ],
+    "notes": "Draft save test",
+    "createdDate": "2026-08-04T11:25:02.934Z",
+    "preparedBy": "TestUser",
+    "preparedByRole": "Admin",
+    "preparedByEmail": "test@example.com",
+    "status": "DRAFT",
+    "documentType": "DRAFT",
+    "draftId": "DL-011-TEST",
+    "updatedAt": "2026-08-04T11:25:02.997Z",
+    "createdAt": "2026-08-04T11:25:02.997Z"
   }
 ]

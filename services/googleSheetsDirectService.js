@@ -8,45 +8,42 @@ const KEY_FILE_PATH = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH
   : path.join(__dirname, '../service-account.json');
 
 let sheetsClient = null;
+let serviceAccountDisabled = false;
 
 const getSheetsClient = async () => {
   if (sheetsClient) return sheetsClient;
 
+  let keyJson = {};
+
   try {
-    let auth;
-
-    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-      const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-      auth = new google.auth.GoogleAuth({
-        credentials: {
-          client_email: process.env.GOOGLE_CLIENT_EMAIL,
-          private_key: privateKey,
-          project_id: process.env.GOOGLE_PROJECT_ID || 'dispatch-key'
-        },
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      });
-    } else if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-      let credentials = typeof process.env.GOOGLE_SERVICE_ACCOUNT_JSON === 'string'
-        ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
-        : process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-
-      if (credentials && typeof credentials.private_key === 'string') {
-        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
-      }
-
-      auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      });
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      keyJson = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     } else if (fs.existsSync(KEY_FILE_PATH)) {
-      auth = new google.auth.GoogleAuth({
-        keyFile: KEY_FILE_PATH,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      });
-    } else {
-      console.log(`⚠️ Google Service Account credentials not found (Checked keyFile at: ${KEY_FILE_PATH}, and env variables GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY / GOOGLE_SERVICE_ACCOUNT_JSON).`);
-      return null;
+      const rawKey = fs.readFileSync(KEY_FILE_PATH, 'utf8');
+      keyJson = JSON.parse(rawKey);
     }
+  } catch (parseErr) {
+    console.warn('⚠️ Could not parse Google Service Account credentials:', parseErr.message);
+  }
+
+  const clientEmail = keyJson.client_email || process.env.GOOGLE_CLIENT_EMAIL;
+  let privateKey = keyJson.private_key || process.env.GOOGLE_PRIVATE_KEY || '';
+
+  if (!clientEmail || !privateKey) {
+    console.log('ℹ️ Google Service Account key file or environment credentials not configured.');
+    return null;
+  }
+
+  try {
+    privateKey = privateKey.replace(/\\n/g, '\n');
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: clientEmail,
+        private_key: privateKey
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
 
     const authClient = await auth.getClient();
     sheetsClient = google.sheets({ version: 'v4', auth: authClient });
@@ -239,7 +236,8 @@ const googleSheetsDirectService = {
       ];
     }
 
-    await googleSheetsDirectService.appendValues(spreadsheetId, `Bills!A1`, billRow);
+    const appendRes = await googleSheetsDirectService.appendValues(spreadsheetId, `Bills!A1`, billRow);
+    if (!appendRes) return false;
 
     // 2. Append all items to BillItems sheet (18 Columns with PartNo guaranteed at col 16)
     if (items.length > 0) {
@@ -410,7 +408,8 @@ const googleSheetsDirectService = {
       }
     } else {
       console.log(`📦 [DIRECT SHEETS] Appending new draft ${draftNumber} to DraftBills...`);
-      await googleSheetsDirectService.appendValues(spreadsheetId, `DraftBills!A1:S`, draftRow);
+      const res = await googleSheetsDirectService.appendValues(spreadsheetId, `DraftBills!A1:S`, draftRow);
+      if (!res) return false;
 
       if (items.length > 0) {
         const newItemRows = items.map(item => buildDraftItemRow(draftNumber, item, draftData));
@@ -424,6 +423,7 @@ const googleSheetsDirectService = {
 
   // Save Barcode Lot (Dynamic Header Column Mapping) directly via Service Account
   saveLotBarcodeData: async (data) => {
+    if (serviceAccountDisabled) return false;
     const spreadsheetId = process.env.GOOGLE_PRODUCT_SHEET_ID || "1dOCjNFwaAel5qun0_ZJVIGmREqjI76CJBBFIjM3NHv8";
     const tabName = "LotBarcodeData";
 
@@ -522,9 +522,13 @@ const googleSheetsDirectService = {
         ];
       }
 
-      return await googleSheetsDirectService.appendValues(spreadsheetId, `${tabName}!A1`, rowData);
+      const res = await googleSheetsDirectService.appendValues(spreadsheetId, `${tabName}!A1`, rowData);
+      return !!res;
     } catch (err) {
-      console.error("Error in saveLotBarcodeData:", err);
+      if (err.message && (err.message.includes('invalid_grant') || err.message.includes('Invalid JWT Signature'))) {
+        serviceAccountDisabled = true;
+      }
+      console.warn("⚠️ Error in saveLotBarcodeData:", err.message);
       return false;
     }
   },
@@ -647,20 +651,46 @@ const googleSheetsDirectService = {
     return Array.from(billMap.values());
   },
 
-  // Get raw values for any range directly via Service Account
+  // Get raw values for any range (Service Account primary, API Key failover)
   getSheetValues: async (spreadsheetId, range) => {
-    const sheets = await getSheetsClient();
-    if (!sheets) return [];
-    try {
-      const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: spreadsheetId || process.env.GOOGLE_PRODUCT_SHEET_ID || "1dOCjNFwaAel5qun0_ZJVIGmREqjI76CJBBFIjM3NHv8",
-        range: range || "A1:Z5000"
-      });
-      return res.data.values || [];
-    } catch (err) {
-      console.error(`Error fetching range ${range} from spreadsheet ${spreadsheetId}:`, err.message);
-      return [];
+    const targetSpreadsheetId = spreadsheetId || process.env.GOOGLE_PRODUCT_SHEET_ID || "1dOCjNFwaAel5qun0_ZJVIGmREqjI76CJBBFIjM3NHv8";
+    const targetRange = range || "A1:Z5000";
+
+    // 1. Try Direct Google Service Account API (if active)
+    if (!serviceAccountDisabled) {
+      try {
+        const sheets = await getSheetsClient();
+        if (sheets) {
+          const res = await sheets.spreadsheets.values.get({
+            spreadsheetId: targetSpreadsheetId,
+            range: targetRange
+          });
+          if (res.data.values && res.data.values.length > 0) {
+            return res.data.values;
+          }
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('invalid_grant') || err.message.includes('Invalid JWT Signature'))) {
+          serviceAccountDisabled = true;
+          console.log(`ℹ️ [SHEETS READ] Switched sheet reads to high-speed API Key mode.`);
+        }
+      }
     }
+
+    // 2. High-Speed API Key Fetch
+    try {
+      const apiKey = process.env.GOOGLE_API_KEY || "AIzaSyAomDFBkOySlIxKWSKGHe6ATv9gvaBr7uk";
+      const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${targetSpreadsheetId}/values/${encodeURIComponent(targetRange)}?key=${apiKey}`;
+      const response = await fetch(apiUrl);
+      if (response.ok) {
+        const json = await response.json();
+        return json.values || [];
+      }
+    } catch (apiErr) {
+      console.error(`❌ [SHEETS READ] Error fetching range ${targetRange} via API Key:`, apiErr.message);
+    }
+
+    return [];
   },
 
   // Update Gatepass Information in Bills tab directly via Service Account
@@ -753,6 +783,64 @@ const googleSheetsDirectService = {
 
     } catch (err) {
       console.error("❌ Error updating Gatepass info in Google Sheets:", err.message);
+      return false;
+    }
+  },
+
+  // Delete Draft Packing List from DraftBills and DraftItems tabs directly via Service Account
+  deleteDraftData: async (draftId) => {
+    if (!draftId) return false;
+    const cleanId = String(draftId).trim();
+    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID || "1s8cXaMtG2XSxdOu1Ecve5aLI2MQcbMjVsn6Sih4hItk";
+    const sheets = await getSheetsClient();
+    if (!sheets) return false;
+
+    try {
+      // 1. Remove from DraftBills tab
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `DraftBills!A1:A500`
+      });
+      if (res.data.values) {
+        const rows = res.data.values;
+        const targetIdx = rows.findIndex(r => r[0] && String(r[0]).trim() === cleanId);
+        if (targetIdx !== -1) {
+          const rowNum = targetIdx + 1;
+          await sheets.spreadsheets.values.clear({
+            spreadsheetId,
+            range: `DraftBills!A${rowNum}:S${rowNum}`
+          });
+          console.log(`✅ [DIRECT SHEETS] Cleared DraftBills row A${rowNum} for draft ${cleanId}`);
+        }
+      }
+
+      // 2. Remove items from DraftItems tab
+      const itemsRes = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `DraftItems!A1:Q5000`
+      });
+      if (itemsRes.data.values && itemsRes.data.values.length > 0) {
+        const allRows = itemsRes.data.values;
+        const headerRow = allRows[0];
+        const remainingRows = allRows.slice(1).filter(r => !r[0] || String(r[0]).trim() !== cleanId);
+
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `DraftItems!A1:Q5000`
+        });
+
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `DraftItems!A1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [headerRow, ...remainingRows] }
+        });
+        console.log(`✅ [DIRECT SHEETS] Removed DraftItems for draft ${cleanId}`);
+      }
+
+      return true;
+    } catch (err) {
+      console.error(`❌ [DIRECT SHEETS] Error deleting draft ${cleanId}:`, err.message);
       return false;
     }
   }

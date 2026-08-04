@@ -31,9 +31,9 @@ const parsePayload = (req, res, next) => {
   let payload = req.body || {};
 
   if (typeof payload.payload === 'string') {
-    try { payload = JSON.parse(payload.payload); } catch (_) {}
+    try { payload = JSON.parse(payload.payload); } catch (_) { }
   } else if (typeof payload.data === 'string') {
-    try { payload = JSON.parse(payload.data); } catch (_) {}
+    try { payload = JSON.parse(payload.data); } catch (_) { }
   }
 
   req.parsedPayload = payload;
@@ -77,7 +77,7 @@ const handlePostRequest = async (req, res) => {
     if (action === 'saveLotData') {
       const lotData = typeof p.data === 'object' ? p.data : (typeof req.body.data === 'string' ? JSON.parse(req.body.data) : p);
       const result = lotBarcodeService.saveLotData(lotData);
-      
+
       // Asynchronous background Google Sheets sync (non-blocking for fast HTTP response)
       googleSheetsSync.syncBarcodeLotToSheet('saveLotData', lotData)
         .then(sheetSync => console.log("📊 [LOT SAVE SHEET SYNC RESULT]:", sheetSync))
@@ -107,15 +107,25 @@ const handlePostRequest = async (req, res) => {
         p.gatepassNumber || '',
         p.gatepassData || {}
       );
-      googleSheetsSync.syncGatepassToSheet(p);
-      return res.json(result);
+      const sheetSync = await googleSheetsSync.syncGatepassToSheet(p);
+      console.log('📊 [GATEPASS SHEET SYNC RESULT]:', sheetSync);
+      return res.json({ ...result, sheetSync });
     }
 
     // 3. DELETE DRAFT
     if (action === 'deleteDraft' || req.body.type === 'deleteDraft') {
-      const draftId = p.draftId || p.packingNumber || p.billNumber;
+      let draftId = p.draftId || p.packingNumber || p.billNumber || req.body.draftId;
+      if (!draftId && req.body.data) {
+        try {
+          const parsed = JSON.parse(typeof req.body.data === 'string' ? req.body.data : JSON.stringify(req.body.data));
+          draftId = parsed.draftId || parsed.packingNumber || parsed.billNumber;
+        } catch (_) { }
+      }
+      console.log(`🗑️ Processing Delete Draft for ID: ${draftId}`);
       const success = db.deleteDraft(draftId);
-      return res.json({ success, message: success ? 'Draft deleted' : 'Draft not found' });
+      const sheetSync = await googleSheetsSync.deleteDraftFromSheet(draftId);
+      console.log('📊 [DELETE DRAFT SHEET SYNC RESULT]:', sheetSync);
+      return res.json({ success: true, message: success ? 'Draft deleted' : 'Draft not found', sheetSync });
     }
 
     // 4. SEND GATEPASS EMAIL
@@ -133,20 +143,31 @@ const handlePostRequest = async (req, res) => {
       if (isDraft) {
         console.log('💾 Saving Draft Packing List...');
         const savedDraft = db.saveDraft(billData);
-        googleSheetsSync.syncDraftToSheet(billData)
-          .then(res => console.log('📊 [DRAFT SHEET SYNC RESULT]:', res))
-          .catch(err => console.error('❌ [DRAFT SHEET SYNC ERROR]:', err.message));
+        const sheetSync = await googleSheetsSync.syncDraftToSheet(billData);
+        console.log('📊 [DRAFT SHEET SYNC RESULT]:', sheetSync);
 
         return res.json({
           success: true,
           message: 'Draft saved successfully',
           packingNumber: savedDraft.draftId,
-          billNumber: savedDraft.draftId
+          billNumber: savedDraft.draftId,
+          sheetSync
         });
       } else {
         console.log('💾 Saving FINAL Bill & Sending Email...');
         const savedBill = db.saveBill(billData);
-        googleSheetsSync.syncBillToSheet(billData);
+        const sheetSync = await googleSheetsSync.syncBillToSheet(billData);
+        console.log('📊 [FINAL BILL SHEET SYNC RESULT]:', sheetSync);
+
+        // If this final bill was created from a draft, automatically delete the original draft from DB & Sheets
+        const targetDraftId = billData.draftId || billData.originalDraftId || billData.convertedFromDraftId || billData.draftNumber;
+        let draftDeletionResult = null;
+        if (targetDraftId) {
+          console.log(`🧹 Cleaning up original draft ${targetDraftId} after converting to final bill...`);
+          db.deleteDraft(targetDraftId);
+          draftDeletionResult = await googleSheetsSync.deleteDraftFromSheet(targetDraftId);
+          console.log('📊 [AUTOMATIC DRAFT DELETION RESULT]:', draftDeletionResult);
+        }
 
         let emailSent = false;
         try {
@@ -161,7 +182,9 @@ const handlePostRequest = async (req, res) => {
           message: 'Bill saved successfully',
           packingNumber: savedBill.packingNumber,
           billNumber: savedBill.billNumber,
-          emailSent
+          emailSent,
+          sheetSync,
+          draftDeleted: draftDeletionResult
         });
       }
     }

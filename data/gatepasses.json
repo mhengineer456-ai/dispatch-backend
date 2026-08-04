@@ -87,5 +87,43 @@
     },
     "updatedAt": "2026-08-03T07:40:10.626Z",
     "createdAt": "2026-08-03T07:40:10.626Z"
+  },
+  {
+    "gatepassNumber": "MGP-1785851835091",
+    "billNumbers": [
+      "PL-1176"
+    ],
+    "gatepassData": {
+      "selectedBills": [
+        {
+          "Bill Number": "PL-1176",
+          "additionalDetails": {
+            "totalPetti": 1,
+            "totalBora": 0,
+            "totalPolybags": 0,
+            "isByHand": false,
+            "byHandQuantity": 0,
+            "byHandPersonName": "",
+            "byPorter": false
+          }
+        }
+      ],
+      "driverName": "DWARPAL",
+      "driverContact": "7710675491",
+      "vehicleNumber": "PB 10 FV 7557",
+      "driverVehicleNumber": "PB 10 FV 7557",
+      "purpose": "delivery",
+      "consolidatedRemarks": "",
+      "totalBoxes": 1,
+      "totalBags": 0,
+      "totalPolybags": 0,
+      "porter": "NO",
+      "byHand": "NO",
+      "byHandPersonName": "",
+      "gatepassNumber": "MGP-1785851835091",
+      "gatepassTime": "4/8/2026, 7:27:21 pm"
+    },
+    "updatedAt": "2026-08-04T13:57:21.529Z",
+    "createdAt": "2026-08-04T13:57:21.529Z"
   }
 ]
