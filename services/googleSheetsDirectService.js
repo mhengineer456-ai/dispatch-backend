@@ -21,6 +21,11 @@ const getSheetsClient = async () => {
       } else {
         credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
       }
+
+      if (credentials && typeof credentials.private_key === 'string') {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
+
       auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets']
