@@ -12,9 +12,9 @@ let sheetsClient = null;
 const getSheetsClient = async () => {
   if (sheetsClient) return sheetsClient;
 
-  try {
-    let auth;
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+  // If key file does not exist on server, but env variable exists, write service-account.json to disk automatically
+  if (!fs.existsSync(KEY_FILE_PATH) && process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    try {
       let credentials;
       if (typeof process.env.GOOGLE_SERVICE_ACCOUNT_JSON === 'string') {
         credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -26,19 +26,23 @@ const getSheetsClient = async () => {
         credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
       }
 
-      auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      });
-    } else if (fs.existsSync(KEY_FILE_PATH)) {
-      auth = new google.auth.GoogleAuth({
-        keyFile: KEY_FILE_PATH,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      });
-    } else {
-      console.log(`⚠️ Google Service Account key file not found at: ${KEY_FILE_PATH} and GOOGLE_SERVICE_ACCOUNT_JSON env var is not set.`);
-      return null;
+      fs.writeFileSync(KEY_FILE_PATH, JSON.stringify(credentials, null, 2), 'utf8');
+      console.log(`📝 Successfully generated ${KEY_FILE_PATH} from environment variable!`);
+    } catch (writeErr) {
+      console.error('❌ Error creating service-account.json from env variable:', writeErr.message);
     }
+  }
+
+  if (!fs.existsSync(KEY_FILE_PATH)) {
+    console.log(`⚠️ Google Service Account key file not found at: ${KEY_FILE_PATH}`);
+    return null;
+  }
+
+  try {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: KEY_FILE_PATH,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
 
     const authClient = await auth.getClient();
     sheetsClient = google.sheets({ version: 'v4', auth: authClient });
