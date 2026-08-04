@@ -12,27 +12,6 @@ let sheetsClient = null;
 const getSheetsClient = async () => {
   if (sheetsClient) return sheetsClient;
 
-  // If key file does not exist on server, but env variable exists, write service-account.json to disk automatically
-  if (!fs.existsSync(KEY_FILE_PATH) && process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    try {
-      let credentials;
-      if (typeof process.env.GOOGLE_SERVICE_ACCOUNT_JSON === 'string') {
-        credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-      } else {
-        credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-      }
-
-      if (credentials && typeof credentials.private_key === 'string') {
-        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
-      }
-
-      fs.writeFileSync(KEY_FILE_PATH, JSON.stringify(credentials, null, 2), 'utf8');
-      console.log(`📝 Successfully generated ${KEY_FILE_PATH} from environment variable!`);
-    } catch (writeErr) {
-      console.error('❌ Error creating service-account.json from env variable:', writeErr.message);
-    }
-  }
-
   if (!fs.existsSync(KEY_FILE_PATH)) {
     console.log(`⚠️ Google Service Account key file not found at: ${KEY_FILE_PATH}`);
     return null;

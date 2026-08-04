@@ -1,10 +1,9 @@
 # Dependencies
 node_modules/
 
-# Secrets & Environment Variables (NEVER COMMIT TO GITHUB)
+# Secrets & Environment Variables (NEVER COMMIT TO PUBLIC GITHUB)
 .env
 .env.local
-service-account.json
 *.pem
 *.key
 
