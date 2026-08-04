@@ -12,16 +12,28 @@ let sheetsClient = null;
 const getSheetsClient = async () => {
   if (sheetsClient) return sheetsClient;
 
-  if (!fs.existsSync(KEY_FILE_PATH)) {
-    console.log(`⚠️ Google Service Account key file not found at: ${KEY_FILE_PATH}`);
-    return null;
-  }
-
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: KEY_FILE_PATH,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets']
-    });
+    let auth;
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      let credentials;
+      if (typeof process.env.GOOGLE_SERVICE_ACCOUNT_JSON === 'string') {
+        credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      } else {
+        credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+      }
+      auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    } else if (fs.existsSync(KEY_FILE_PATH)) {
+      auth = new google.auth.GoogleAuth({
+        keyFile: KEY_FILE_PATH,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    } else {
+      console.log(`⚠️ Google Service Account key file not found at: ${KEY_FILE_PATH} and GOOGLE_SERVICE_ACCOUNT_JSON env var is not set.`);
+      return null;
+    }
 
     const authClient = await auth.getClient();
     sheetsClient = google.sheets({ version: 'v4', auth: authClient });
@@ -592,7 +604,7 @@ const googleSheetsDirectService = {
 
           let jsonPayload = null;
           if (row[16] && row[16].startsWith('{')) {
-            try { jsonPayload = JSON.parse(row[16]); } catch (e) {}
+            try { jsonPayload = JSON.parse(row[16]); } catch (e) { }
           }
 
           if (jsonPayload && typeof jsonPayload === 'object') {
