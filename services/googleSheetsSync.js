@@ -12,14 +12,16 @@ const googleSheetsSync = {
     console.log(`📦 [BACKEND SYNC] Saving Final Bill ${billNum} to Google Sheets...`);
     
     // 1. Try Direct Google Service Account API
-    try {
-      const directResult = await googleSheetsDirectService.saveBillData(billData);
-      if (directResult) {
-        console.log(`✅ [BACKEND SYNC] Saved Bill ${billNum} via Direct Service Account API`);
-        return { success: true, message: 'Bill saved via Backend Service Account' };
+    if (!googleSheetsDirectService.isServiceAccountDisabled()) {
+      try {
+        const directResult = await googleSheetsDirectService.saveBillData(billData);
+        if (directResult) {
+          console.log(`✅ [BACKEND SYNC] Saved Bill ${billNum} via Direct Service Account API`);
+          return { success: true, message: 'Bill saved via Backend Service Account' };
+        }
+      } catch (err) {
+        console.warn(`⚠️ [BACKEND SYNC] Direct Service Account save error (${err.message}). Using Backend Web Bridge...`);
       }
-    } catch (err) {
-      console.warn(`⚠️ [BACKEND SYNC] Direct Service Account save error (${err.message}). Using Backend Web Bridge...`);
     }
 
     // 2. Failover: Backend internal proxy call to Google Sheets web endpoint
@@ -53,14 +55,16 @@ const googleSheetsSync = {
     console.log(`📦 [BACKEND SYNC] Saving Draft ${draftNum} to Google Sheets...`);
     
     // 1. Try Direct Google Service Account API
-    try {
-      const directResult = await googleSheetsDirectService.saveDraftData(draftData);
-      if (directResult) {
-        console.log(`✅ [BACKEND SYNC] Saved Draft ${draftNum} via Direct Service Account API`);
-        return { success: true, message: 'Draft saved via Backend Service Account' };
+    if (!googleSheetsDirectService.isServiceAccountDisabled()) {
+      try {
+        const directResult = await googleSheetsDirectService.saveDraftData(draftData);
+        if (directResult) {
+          console.log(`✅ [BACKEND SYNC] Saved Draft ${draftNum} via Direct Service Account API`);
+          return { success: true, message: 'Draft saved via Backend Service Account' };
+        }
+      } catch (err) {
+        console.warn(`⚠️ [BACKEND SYNC] Direct Service Account draft error (${err.message}). Using Backend Web Bridge...`);
       }
-    } catch (err) {
-      console.warn(`⚠️ [BACKEND SYNC] Direct Service Account draft error (${err.message}). Using Backend Web Bridge...`);
     }
 
     // 2. Failover: Backend internal proxy call (JSON body expected by Draft Apps Script)
@@ -89,15 +93,27 @@ const googleSheetsSync = {
   syncGatepassToSheet: async (payload) => {
     console.log(`📦 [BACKEND SYNC] Updating Gatepass info in Google Sheets...`);
     
+    const billNumbers = Array.isArray(payload.billNumbers) && payload.billNumbers.length > 0
+      ? payload.billNumbers
+      : [payload.billNumber || payload.packingNumber || payload.billNumbers].filter(Boolean);
+
+    const formattedPayload = {
+      ...payload,
+      billNumbers: billNumbers,
+      action: 'updateGatepass'
+    };
+
     // 1. Try Direct Google Service Account API
-    try {
-      const directResult = await googleSheetsDirectService.updateGatepassData(payload);
-      if (directResult) {
-        console.log(`✅ [BACKEND SYNC] Updated Gatepass info via Direct Service Account API`);
-        return { success: true, message: 'Gatepass updated via Backend Service Account' };
+    if (!googleSheetsDirectService.isServiceAccountDisabled()) {
+      try {
+        const directResult = await googleSheetsDirectService.updateGatepassData(formattedPayload);
+        if (directResult) {
+          console.log(`✅ [BACKEND SYNC] Updated Gatepass info via Direct Service Account API`);
+          return { success: true, message: 'Gatepass updated via Backend Service Account' };
+        }
+      } catch (err) {
+        console.warn(`⚠️ [BACKEND SYNC] Direct Service Account gatepass error (${err.message}). Using Backend Web Bridge...`);
       }
-    } catch (err) {
-      console.warn(`⚠️ [BACKEND SYNC] Direct Service Account gatepass error (${err.message}). Using Backend Web Bridge...`);
     }
 
     // 2. Failover: Backend internal proxy call (JSON body expected by Gatepass Apps Script)
@@ -106,10 +122,7 @@ const googleSheetsSync = {
       const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...payload,
-          action: 'updateGatepass'
-        })
+        body: JSON.stringify(formattedPayload)
       });
       const json = await res.json();
       console.log(`✅ [BACKEND SYNC] Updated Gatepass in Google Sheets via Backend Web Bridge:`, json);
@@ -127,14 +140,16 @@ const googleSheetsSync = {
       console.log(`📦 [BACKEND SYNC] Saving Lot Barcode Data ${lotNum} to Google Sheets...`);
       
       // 1. Try Direct Google Service Account API
-      try {
-        const directResult = await googleSheetsDirectService.saveLotBarcodeData(lotData);
-        if (directResult) {
-          console.log(`✅ [BACKEND SYNC] Saved Lot ${lotNum} via Direct Service Account API`);
-          return { success: true, message: 'Lot saved via Backend Service Account' };
+      if (!googleSheetsDirectService.isServiceAccountDisabled()) {
+        try {
+          const directResult = await googleSheetsDirectService.saveLotBarcodeData(lotData);
+          if (directResult) {
+            console.log(`✅ [BACKEND SYNC] Saved Lot ${lotNum} via Direct Service Account API`);
+            return { success: true, message: 'Lot saved via Backend Service Account' };
+          }
+        } catch (err) {
+          console.warn(`⚠️ [BACKEND SYNC] Direct Service Account lot save error (${err.message}). Using Backend Web Bridge...`);
         }
-      } catch (err) {
-        console.warn(`⚠️ [BACKEND SYNC] Direct Service Account lot save error (${err.message}). Using Backend Web Bridge...`);
       }
 
       // 2. Failover: Backend internal proxy call ('data' parameter expected by Barcode Apps Script)

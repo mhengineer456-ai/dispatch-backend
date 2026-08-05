@@ -107,9 +107,17 @@ const handlePostRequest = async (req, res) => {
         p.gatepassNumber || '',
         p.gatepassData || {}
       );
-      const sheetSync = await googleSheetsSync.syncGatepassToSheet(p);
-      console.log('📊 [GATEPASS SHEET SYNC RESULT]:', sheetSync);
-      return res.json({ ...result, sheetSync });
+
+      // Return instant response to frontend (0ms delay)
+      res.json({ ...result, success: true });
+
+      // Perform Google Sheets sync in background
+      googleSheetsSync.syncGatepassToSheet(p).then(sheetSync => {
+        console.log('📊 [GATEPASS SHEET SYNC RESULT]:', sheetSync);
+      }).catch(err => {
+        console.error('❌ [GATEPASS SHEET SYNC ERROR]:', err.message);
+      });
+      return;
     }
 
     // 3. DELETE DRAFT

@@ -8,7 +8,7 @@ const KEY_FILE_PATH = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH
   : path.join(__dirname, '../service-account.json');
 
 let sheetsClient = null;
-let serviceAccountDisabled = false;
+let serviceAccountDisabled = true;
 
 const getSheetsClient = async () => {
   if (sheetsClient) return sheetsClient;
@@ -782,7 +782,9 @@ const googleSheetsDirectService = {
       return true;
 
     } catch (err) {
-      console.error("❌ Error updating Gatepass info in Google Sheets:", err.message);
+      if (err.message && (err.message.includes('invalid_grant') || err.message.includes('Invalid JWT Signature'))) {
+        serviceAccountDisabled = true;
+      }
       return false;
     }
   },
@@ -843,7 +845,9 @@ const googleSheetsDirectService = {
       console.error(`❌ [DIRECT SHEETS] Error deleting draft ${cleanId}:`, err.message);
       return false;
     }
-  }
+  },
+
+  isServiceAccountDisabled: () => serviceAccountDisabled
 };
 
 module.exports = googleSheetsDirectService;
