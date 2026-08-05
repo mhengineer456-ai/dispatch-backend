@@ -139,8 +139,14 @@ const handlePostRequest = async (req, res) => {
     // 4. SEND GATEPASS EMAIL
     if (action === 'sendGatepassEmail') {
       console.log('📧 Processing Gatepass Email...');
-      const result = await sendGatepassEmailWithPDF(p);
-      return res.json(result);
+      res.json({ success: true, message: 'Gatepass email processing in background' });
+
+      sendGatepassEmailWithPDF(p).then(result => {
+        console.log('📧 Gatepass Email result:', result);
+      }).catch(err => {
+        console.warn('⚠️ Gatepass Email error:', err.message);
+      });
+      return;
     }
 
     // 5. CREATE PACKING LIST (DRAFT OR FINAL)
