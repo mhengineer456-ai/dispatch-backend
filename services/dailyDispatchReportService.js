@@ -8,14 +8,14 @@ require('dotenv').config({ override: true });
 
 const RECIPIENTS = process.env.PARTYBILL_EMAIL_TO
   ? process.env.PARTYBILL_EMAIL_TO.split(',').map(e => e.trim())
-  : ["paras.goyal.it@gmail.com"];
+  : ["mhdispatch26@gmail.com"];
 
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || "MH Dispatch System";
 const APPS_SCRIPT_URL = process.env.BILL_APPS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbwSOsKfAlKYq-wYGFa4KWnGwryK1T0ViJYigil8pCbZz_xkK3gv0tqtCgB-k54rRVfa/exec";
 
 // Create Nodemailer Transporter
 const createTransporter = () => {
-  const user = process.env.SMTP_USER || process.env.GMAIL_USER || "paras.goyal.it@gmail.com";
+  const user = process.env.SMTP_USER || process.env.GMAIL_USER || "mhdispatch26@gmail.com";
   const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
 
   if (!pass || pass === 'your-app-password-here') {

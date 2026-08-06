@@ -122,7 +122,7 @@ const buildPartyBillHTML = (billData) => {
 
 const sendPartyBillEmailWithPDF = async (billData, pdfBuffer = null) => {
   const docNum = billData.packingNumber || billData.billNumber || 'N/A';
-  const recipients = (process.env.PARTYBILL_EMAIL_TO || 'paras.goyal.it@gmail.com').split(',').map(s => s.trim()).filter(Boolean);
+  const recipients = (process.env.PARTYBILL_EMAIL_TO || 'mhdispatch26@gmail.com').split(',').map(s => s.trim()).filter(Boolean);
 
   const subject = `[Packing List] — ${docNum} — ${billData.partyName || 'N/A'}`;
   const htmlBody = buildPartyBillHTML(billData);
@@ -165,7 +165,7 @@ const sendGatepassEmailWithPDF = async (payload) => {
   const pdfBase64 = payload.pdfBase64;
   const pdfFileName = payload.pdfFileName || `Gatepass_${gatepassNumber}.pdf`;
 
-  const recipients = (process.env.GATEPASS_EMAIL_TO || 'paras.goyal.it@gmail.com').split(',').map(s => s.trim()).filter(Boolean);
+  const recipients = (process.env.GATEPASS_EMAIL_TO || 'mhdispatch26@gmail.com').split(',').map(s => s.trim()).filter(Boolean);
   const subject = `[Gatepass] ${gatepassNumber} - ${(gatepassData.selectedBills || []).length} Bills`;
 
   const attachments = [];
