@@ -155,51 +155,55 @@ const handlePostRequest = async (req, res) => {
       const isDraft = billData.status === 'DRAFT' || billData.documentType === 'DRAFT' || req.body.type === 'draft';
 
       if (isDraft) {
-        console.log('💾 Saving Draft Packing List to local DB and Google Sheets...');
+        console.log('💾 Saving Draft Packing List to database...');
         const savedDraft = db.saveDraft(billData);
 
-        let sheetSync = null;
-        try {
-          sheetSync = await googleSheetsSync.syncDraftToSheet(billData);
-          console.log('📊 [DRAFT SHEET SYNC RESULT]:', sheetSync);
-        } catch (err) {
-          console.error('❌ [DRAFT SHEET SYNC ERROR]:', err.message);
-        }
-
-        return res.json({
+        // Fast instant response (<50ms)
+        res.json({
           success: true,
           message: 'Draft saved successfully',
           packingNumber: savedDraft.draftId,
-          billNumber: savedDraft.draftId,
-          sheetSync
+          billNumber: savedDraft.draftId
         });
+
+        // Background Google Sheets sync (non-blocking)
+        googleSheetsSync.syncDraftToSheet(billData)
+          .then(sheetSync => console.log('📊 [DRAFT SHEET SYNC RESULT]:', sheetSync))
+          .catch(err => console.error('❌ [DRAFT SHEET SYNC ERROR]:', err.message));
+        return;
       } else {
-        console.log('💾 Saving FINAL Bill to local DB and Google Sheets...');
+        console.log('💾 Saving FINAL Bill to database & starting background sync...');
         const savedBill = db.saveBill(billData);
 
-        let sheetSync = null;
-        try {
-          sheetSync = await googleSheetsSync.syncBillToSheet(billData);
-          console.log('📊 [FINAL BILL SHEET SYNC RESULT]:', sheetSync);
-        } catch (e) {
-          console.error('❌ [FINAL BILL SHEET SYNC ERROR]:', e.message);
-        }
+        // Fast instant response to frontend (<50ms)
+        res.json({
+          success: true,
+          message: 'Bill saved successfully',
+          packingNumber: savedBill.packingNumber,
+          billNumber: savedBill.billNumber
+        });
 
-        // Cleanup draft if converted
-        const targetDraftId = billData.draftId || billData.originalDraftId || billData.convertedFromDraftId || billData.draftNumber;
-        if (targetDraftId) {
-          try {
-            console.log(`🧹 Cleaning up original draft ${targetDraftId} after converting to final bill...`);
-            db.deleteDraft(targetDraftId);
-            const draftDeletionResult = await googleSheetsSync.deleteDraftFromSheet(targetDraftId);
-            console.log('📊 [AUTOMATIC DRAFT DELETION RESULT]:', draftDeletionResult);
-          } catch (e) {
-            console.error('❌ [AUTOMATIC DRAFT DELETION ERROR]:', e.message);
-          }
-        }
-
-        // Dispatch email notification in background
+        // Background async processing: Google Sheets sync + Original draft cleanup + Email dispatch
         (async () => {
+          try {
+            const sheetSync = await googleSheetsSync.syncBillToSheet(billData);
+            console.log('📊 [FINAL BILL SHEET SYNC RESULT]:', sheetSync);
+          } catch (e) {
+            console.error('❌ [FINAL BILL SHEET SYNC ERROR]:', e.message);
+          }
+
+          const targetDraftId = billData.draftId || billData.originalDraftId || billData.convertedFromDraftId || billData.draftNumber;
+          if (targetDraftId) {
+            try {
+              console.log(`🧹 Cleaning up original draft ${targetDraftId} after converting to final bill...`);
+              db.deleteDraft(targetDraftId);
+              const draftDeletionResult = await googleSheetsSync.deleteDraftFromSheet(targetDraftId);
+              console.log('📊 [AUTOMATIC DRAFT DELETION RESULT]:', draftDeletionResult);
+            } catch (e) {
+              console.error('❌ [AUTOMATIC DRAFT DELETION ERROR]:', e.message);
+            }
+          }
+
           try {
             const pdfBuffer = generatePackingListPDF(savedBill);
             const emailSent = await sendPartyBillEmailWithPDF(savedBill, pdfBuffer);
@@ -208,14 +212,7 @@ const handlePostRequest = async (req, res) => {
             console.error('⚠️ Email generation failed:', emailErr.message);
           }
         })();
-
-        return res.json({
-          success: true,
-          message: 'Bill saved successfully',
-          packingNumber: savedBill.packingNumber,
-          billNumber: savedBill.billNumber,
-          sheetSync
-        });
+        return;
       }
     }
 
